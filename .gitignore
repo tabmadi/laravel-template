@@ -54,6 +54,11 @@ result
 result-*
 .pre-commit-config.yaml
 
-# Composer and PHPUnit
+# PHP dependencies and local tool output
 /vendor/
 /.phpunit.cache/
+/.php-cs-fixer.cache
+/.pint.cache
+
+# SQLite development database
+/database/*.sqlite*

@@ -8,7 +8,7 @@
       "github\\.com/tabmadi"
       "blueprints"
     ];
-    description = "A PHP command-line project with Composer, Mago, and PHPUnit";
+    description = "A Laravel application with Blade, SQLite, and a sandboxed CI gate";
     welcomeText = ''
       # A new project
 

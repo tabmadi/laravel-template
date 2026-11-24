@@ -8,33 +8,38 @@ import? 'template/justfile'
 default:
     @just --list
 
-mago := "mago --config .config/mago.toml"
+pint := "php vendor/bin/pint --config .config/pint.json"
+blade := "blade-formatter --config .config/blade-formatter.json"
 
-# Install the dependencies from composer.lock
+# Install dependencies and prepare the local app
 setup: in-shell
     composer install --no-interaction --prefer-dist
+    if [[ ! -e .env ]]; then umask 077; cp .env.example .env; fi
+    if grep -qx 'APP_KEY=' .env; then php artisan key:generate --no-interaction; fi
+    test -e database/database.sqlite || touch database/database.sqlite
+    php artisan migrate --no-interaction
 
-# Run the greeting command
+# Start the Laravel development server
 [positional-arguments]
-run *args: in-shell
-    php bin/greet.php "$@"
+dev host="127.0.0.1" port="8000": in-shell
+    php artisan serve --host="$1" --port="$2"
 
 # Apply every formatter
 format: in-shell
-    {{ mago }} lint --fix
-    {{ mago }} format
+    {{ pint }} . artisan
+    {{ blade }} --write 'resources/views/**/*.blade.php'
     rumdl check --fix .
     nixfmt $(git ls-files '*.nix')
     dprint fmt
     just --fmt
 
-# Check the Composer lock, PHP format, lint rules, and types
+# Check the Composer lock, PHP and Blade format, and PHP types
 lint-php: in-shell
     composer validate --strict
     composer check-platform-reqs --lock
-    {{ mago }} format --check
-    {{ mago }} lint
-    {{ mago }} analyze
+    {{ pint }} --test . artisan
+    {{ blade }} --check-formatted 'resources/views/**/*.blade.php'
+    APP_ENV=testing php vendor/bin/phpstan analyse --configuration=.config/phpstan.neon --memory-limit=512M --no-progress
 
 # Prose, comments, and ADRs, per ADR-0001
 lint-prose: in-shell
@@ -46,7 +51,7 @@ lint-md: in-shell
 
 # Scan the working tree for committed secrets
 lint-secrets: in-shell
-    gitleaks dir . --no-banner
+    gitleaks dir . --config .config/gitleaks-local.toml --no-banner
 
 # JSON, JSONC, TOML, and YAML format, per ADR-0104
 lint-data: in-shell
@@ -65,7 +70,7 @@ lint: lint-php lint-prose lint-md lint-secrets lint-data lint-nix lint-just
 
 # Run the tests
 test: in-shell
-    php vendor/bin/phpunit --bootstrap vendor/autoload.php tests
+    APP_ENV=testing php vendor/bin/phpunit --bootstrap vendor/autoload.php tests
 
 # The fast gate: run it before you finish a change
 check: lint test
@@ -77,6 +82,10 @@ ci:
 # Push what CI built to the binary cache, per ADR-0101. Without NIX_CACHE_URL it does nothing
 cache-push: in-shell
     nix-cache-push
+
+# Make the labels of the forge match .github/labels.yml, per ADR-0101. It deletes every other label
+labels: in-shell
+    tabkit-labels --prune
 
 # Run Renovate over this repository, per ADR-0102. The renovate workflow calls it
 ci-renovate: in-shell

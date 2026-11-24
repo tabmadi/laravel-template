@@ -1,0 +1,6 @@
+# The local scan uses the shared rules and skips the installed Composer packages.
+[extend]
+path = ".config/gitleaks.toml"
+
+[allowlist]
+paths = ['''^vendor/''']

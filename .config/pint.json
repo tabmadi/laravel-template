@@ -1,0 +1,7 @@
+{
+  "preset": "laravel",
+  "exclude": ["resources/views"],
+  "rules": {
+    "declare_strict_types": true
+  }
+}

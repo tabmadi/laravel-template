@@ -9,6 +9,15 @@
   "remove_trailing_whitespace_on_save": true,
   "format_on_save": "off",
   "languages": {
+    "Blade": {
+      "format_on_save": "on",
+      "formatter": {
+        "external": {
+          "command": "blade-formatter",
+          "arguments": ["--config", ".config/blade-formatter.json", "--stdin"]
+        }
+      }
+    },
     "JSON": {
       "format_on_save": "on",
       "formatter": {
@@ -58,8 +67,8 @@
       "format_on_save": "on",
       "formatter": {
         "external": {
-          "command": "mago",
-          "arguments": ["--config", ".config/mago.toml", "format", "--stdin-input", "--stdin-filepath", "{buffer_path}"]
+          "command": "php",
+          "arguments": ["vendor/bin/pint", "--config", ".config/pint.json", "--stdin-filename={buffer_path}"]
         }
       }
     },

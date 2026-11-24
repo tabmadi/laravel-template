@@ -10,6 +10,7 @@ This guide is for any coding agent that works in this repo. `AGENTS.md` is the o
 - If a `template/` folder exists, read `template/AGENTS.md` before anything else.
 - [ADR-0000](docs/adr/0000-foundations.md): what this repo is and the ADR process.
 - [ADR-0110](docs/adr/0110-php.md): the PHP runtime.
+- [ADR-0115](docs/adr/0115-web-framework.md): the Laravel app.
 - [docs/adr/README.md](docs/adr/README.md): the ADR index. To check a convention, grep the `Rules` sections first.
 
 ## Write in Simple English

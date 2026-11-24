@@ -1,49 +1,45 @@
 # ADR-0111: Composer dependencies
 
 - **Status:** Accepted
-- **Decides:** Composer owns the PHP lock and class loading, and Nix uses its fixed hash vendor builder for the checks.
+- **Decides:** Composer owns the PHP lock, and the Nix vendor builder provides the packages for the offline checks.
 
 ## Context
 
-The dev shell and the sandboxed checks need the same PHP dependencies. The checks run without network access.
+Laravel and the PHP tools need the same packages in the dev shell and CI. The Nix checks run without network access.
 
 ## Decision drivers
 
-1. **One package lock.** The local tools and the checks resolve the same dependencies.
-2. **Package metadata.** The project has normal PHP package metadata and PSR-4 class loading.
-3. **Sandbox.** The checks receive the package contents as an input and run offline.
-4. **Update cost.** Renovate can update the package versions and the Nix inputs.
+1. **One lock.** Local and CI use the same Composer versions.
+2. **Sandbox.** Packages enter the check as an input.
+3. **App boot.** The check can run Laravel package discovery in a writable tree.
+4. **Updates.** Renovate can update the lock and its Nix hash.
 
 ## Considered options
 
-| Option | 1 One package lock | 2 Package metadata | 3 Sandbox | 4 Update cost | Verdict |
+| Option | 1 One lock | 2 Sandbox | 3 App boot | 4 Updates | Verdict |
 | --- | --- | --- | --- | --- | --- |
-| Composer install in each check | Yes | Yes | A clean sandbox cannot download packages | Low | Good for a CI job with network access |
-| Nix packages for every PHP tool | Nix locks the tool versions | Composer can still load the app classes | Yes | Low for tools already in Nixpkgs | Good for tools outside the PHP package graph |
-| Commit the Composer vendor tree | Yes | Yes | Yes | Each update adds a vendor diff to git | Good where a repo must retain a copy of dependencies |
-| **Composer lock and Nix vendor builder** | Yes | Yes | Yes, with a fixed hash for the fetch | Renovate updates the lock and runs `just deps-sync` | **Chosen** |
+| Composer install from the network in CI | Yes | Needs network access in the check | Composer hooks run normally | Renovate updates the lock | Fits a networked CI job |
+| Commit the vendor directory | Yes | Yes | Composer can build its autoloader in a copy | Updates include a large vendor diff | Fits a repo that must keep copies of its packages |
+| **Composer and the Nix vendor builder** | Yes | Yes, with a fixed output hash | The check runs package discovery in its work tree | Renovate can call `just deps-sync` | **Chosen** |
 
 ### Sources
 
-- [Composer basic usage](https://getcomposer.org/doc/01-basic-usage.md), [Composer commands](https://getcomposer.org/doc/03-cli.md), and [PSR-4](https://www.php-fig.org/psr/psr-4/).
-- [Nixpkgs PHP builders](https://nixos.org/manual/nixpkgs/unstable/#sec-php) and [Renovate Composer manager](https://docs.renovatebot.com/modules/manager/composer/).
+- [Composer lock usage](https://getcomposer.org/doc/01-basic-usage.md), [Nixpkgs PHP builders](https://nixos.org/manual/nixpkgs/unstable/#sec-php), and [Renovate Composer manager](https://docs.renovatebot.com/modules/manager/composer/).
+- [Laravel package discovery](https://laravel.com/docs/13.x/packages#package-discovery) and the inherited update workflow in [ADR-0102](0102-dependency-updates.md).
 
 ## Decision
 
-Composer installs from `composer.lock` in the dev shell. The manifest maps `App` to `src/` with PSR-4.
+Composer installs from `composer.lock`. Its normal project script runs `artisan package:discover` after an autoload change.
 
-Nix fetches the same locked packages with `php.mkComposerVendor`, with dev packages enabled. The check makes a writable copy, then Composer builds the autoloader offline.
+Nix fetches locked packages with `php.mkComposerVendor`, with dev packages enabled. The check copies the vendor input, restores the autoloader, and runs package discovery offline.
 
-The fixed hash is in `nix/composer-vendor-hash`. The Renovate workflow calls `just deps-sync` to refresh it, per [ADR-0102](0102-dependency-updates.md).
+The hash lives in `nix/composer-vendor-hash`. Renovate calls `just deps-sync` when its changes affect the vendor input.
 
 ## Consequences
 
-A lock change can also change the Nix vendor hash. A manifest change or a Nix update can affect that hash too.
-
-Checks use the extension set of the pinned runtime. A new extension belongs in that runtime definition.
+A manifest, lock, or toolchain change can change the vendor hash. Laravel can write package and view caches within the test tree.
 
 ## Rules
 
-- The project commits `composer.lock` and the matching Nix vendor hash. `(CI: lint-php)`
-- The check installs no packages from the network. The fixed hash fetch provides its vendor input. `(CI: ci)`
-- Composer only runs a plugin when the manifest allows it.
+- Commit `composer.lock` and the matching vendor hash. `(CI: lint-php)`
+- Package discovery and all application checks run in the writable sandbox tree. `(CI: ci)`
